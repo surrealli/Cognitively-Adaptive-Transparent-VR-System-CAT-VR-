@@ -1,0 +1,44 @@
+🚀 Quick Start
+Prerequisites
+Python 3.9+
+
+Unity 2022.3+
+
+EMOTIV EEG Headset (optional - simulator included)
+
+NVIDIA GPU (recommended for AI components)
+
+Installation
+Clone the repository
+
+bash
+git clone https://github.com/your-username/CAT-VR-System.git
+cd CAT-VR-System
+Install Python dependencies
+
+bash
+pip install -r requirements.txt
+Setup Unity Environment
+
+Open Unity Hub
+
+Add the unity/ folder as a project
+
+Install required packages: XR Interaction Toolkit, XR Plugin Management
+
+Basic Usage
+Start the Python backend
+
+bash
+python main.py --mode vr --config config/system_config.yaml
+Launch Unity VR application
+
+Open Assets/Scenes/MainScene.unity in Unity
+
+Press Play or build for your VR platform
+
+Begin cognitive adaptation
+
+Put on your VR headset
+
+The system will automatically detect and adapt to your cognitive state
