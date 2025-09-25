@@ -1,8 +1,4 @@
 Cognitively-Adaptive Transparent VR System (CAT-VR)
-https://img.shields.io/badge/System-CAT--VR-blue
-https://img.shields.io/badge/Python-3.9%252B-green
-https://img.shields.io/badge/Unity-2022.3%252B-lightgrey
-https://img.shields.io/badge/License-MIT-yellow
 
 A groundbreaking neuroadaptive VR system that integrates real-time EEG monitoring, LLM-based cognitive interpretation, and generative AI to create personalized mixed-reality environments.
 
@@ -31,3 +27,4 @@ Education: Adaptive learning environments
 Professional Training: Cognitive load-optimized simulations
 
 Neurorehabilitation: Personalized therapeutic interventions
+
