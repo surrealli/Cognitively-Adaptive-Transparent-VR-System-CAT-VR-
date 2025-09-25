@@ -71,7 +71,6 @@ Installation
 Clone the repository
 
 bash
-git clone https://github.com/your-username/CAT-VR-System.git
 cd CAT-VR-System
 Install Python dependencies
 
