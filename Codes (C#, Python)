@@ -1,1 +1,1697 @@
+📋 Complete Code Files
+1. requirements.txt
+txt
+# Core dependencies
+numpy>=1.21.0
+pandas>=1.3.0
+scipy>=1.7.0
+scikit-learn>=1.0.0
 
+# EEG and physiological processing
+pylsl>=1.14.0
+pygame>=2.0.0
+opencv-python>=4.5.0
+
+# AI and ML
+torch>=1.9.0
+transformers>=4.21.0
+diffusers>=0.14.0
+accelerate>=0.12.0
+
+# VR and visualization
+websockets>=10.0
+pygame>=2.0.0
+matplotlib>=3.5.0
+plotly>=5.0.0
+
+# Utilities
+pyyaml>=6.0
+python-dotenv>=0.19.0
+tqdm>=4.62.0
+loguru>=0.5.0
+
+# Development
+pytest>=6.0.0
+black>=21.0.0
+flake8>=3.9.0
+2. main.py
+python
+#!/usr/bin/env python3
+"""
+CAT-VR System Main Entry Point
+Cognitively-Adaptive Transparent VR System
+"""
+
+import asyncio
+import logging
+import argparse
+from loguru import logger
+import yaml
+import sys
+import os
+
+# Add src to path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+
+from eeg_processing.emotiv_reader import EmotivEEGReader
+from cognitive_interpreter.llm_interpreter import CognitiveStateInterpreter
+from agentic_controller.hierarchical_controller import HierarchicalController
+from generative_content.content_manager import ContentManager
+from vr_integration.vr_bridge import VRCommunicationBridge
+from utils.data_logger import DataLogger
+
+class CATVRSystem:
+    """Main system class that orchestrates all components"""
+    
+    def __init__(self, config_path: str):
+        self.config = self.load_config(config_path)
+        self.setup_logging()
+        
+        # Initialize components
+        self.eeg_reader = EmotivEEGReader(self.config['eeg'])
+        self.interpreter = CognitiveStateInterpreter(self.config['llm'])
+        self.controller = HierarchicalController(self.config['agents'])
+        self.content_manager = ContentManager(self.config['content'])
+        self.vr_bridge = VRCommunicationBridge(self.config['vr'])
+        self.data_logger = DataLogger(self.config['logging'])
+        
+        self.is_running = False
+        
+    def load_config(self, config_path: str) -> dict:
+        """Load system configuration from YAML file"""
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    
+    def setup_logging(self):
+        """Configure logging system"""
+        logging_level = self.config['system'].get('log_level', 'INFO')
+        logger.remove()
+        logger.add(sys.stdout, level=logging_level)
+        logger.add("logs/system_{time}.log", rotation="1 day")
+    
+    async def run(self):
+        """Main system loop"""
+        logger.info("Starting CAT-VR System...")
+        self.is_running = True
+        
+        try:
+            # Start VR communication bridge
+            await self.vr_bridge.start_server()
+            
+            # Main processing loop
+            while self.is_running:
+                await self.process_frame()
+                await asyncio.sleep(0.1)  # 10Hz update rate
+                
+        except KeyboardInterrupt:
+            logger.info("Shutdown signal received")
+        except Exception as e:
+            logger.error(f"System error: {e}")
+        finally:
+            await self.shutdown()
+    
+    async def process_frame(self):
+        """Process one frame of data through the entire pipeline"""
+        try:
+            # 1. Read sensor data
+            sensor_data = await self.eeg_reader.get_multi_modal_data()
+            
+            # 2. Interpret cognitive state
+            cognitive_state = await self.interpreter.interpret_state(sensor_data)
+            
+            # 3. Decide adaptation strategy
+            adaptation = self.controller.process_state(cognitive_state)
+            
+            # 4. Generate adaptive content
+            content = self.content_manager.generate_adaptive_content(adaptation)
+            
+            # 5. Send to VR system
+            await self.vr_bridge.send_adaptation(content, cognitive_state)
+            
+            # 6. Log data for analysis
+            self.data_logger.log_frame({
+                'sensor_data': sensor_data,
+                'cognitive_state': cognitive_state,
+                'adaptation': adaptation,
+                'timestamp': asyncio.get_event_loop().time()
+            })
+            
+        except Exception as e:
+            logger.warning(f"Frame processing error: {e}")
+    
+    async def shutdown(self):
+        """Clean shutdown of all components"""
+        logger.info("Shutting down CAT-VR System...")
+        self.is_running = False
+        await self.vr_bridge.stop_server()
+        self.data_logger.close()
+        logger.info("Shutdown complete")
+
+def main():
+    parser = argparse.ArgumentParser(description='CAT-VR System')
+    parser.add_argument('--config', default='config/system_config.yaml', 
+                       help='Path to configuration file')
+    parser.add_argument('--mode', choices=['vr', 'desktop', 'debug'], 
+                       default='vr', help='Operation mode')
+    
+    args = parser.parse_args()
+    
+    # Create and run system
+    system = CATVRSystem(args.config)
+    
+    try:
+        asyncio.run(system.run())
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+3. config/system_config.yaml
+yaml
+# CAT-VR System Configuration
+
+system:
+  name: "CAT-VR System"
+  version: "1.0.0"
+  log_level: "INFO"
+  update_rate_hz: 10
+
+eeg:
+  device: "emotiv"  # emotiv, muse, openbci, simulator
+  sampling_rate: 128
+  channels: ["AF3", "AF4", "F3", "F4", "FC5", "FC6", "P7", "P8"]
+  metrics: ["focus", "relaxation", "engagement", "stress", "excitement"]
+
+llm:
+  model: "microsoft/DialoGPT-medium"  # Local model for real-time use
+  api_key: ${LLM_API_KEY:}  # From environment variable
+  max_tokens: 150
+  temperature: 0.7
+  cognitive_categories:
+    - "focus"
+    - "relaxation" 
+    - "engagement"
+    - "cognitive_load"
+    - "fatigue"
+
+agents:
+  reflex:
+    update_rate_ms: 100
+    thresholds:
+      focus_low: 0.3
+      focus_high: 0.8
+      relaxation_low: 0.2
+  strategy:
+    update_rate_ms: 2000
+    strategies:
+      induce_calm:
+        target_state: {relaxation: 0.7, focus: 0.5}
+        stimulus: {fractal_dim: 1.2, color_scheme: "cool", movement: "slow"}
+      challenge_focus:
+        target_state: {focus: 0.8, engagement: 0.7}
+        stimulus: {fractal_dim: 1.6, color_scheme: "warm", movement: "dynamic"}
+  meta:
+    learning_rate: 0.1
+    session_memory: 10
+
+content:
+  fractal:
+    base_dimension: 1.3
+    dimension_step: 0.015
+    max_dimension: 2.0
+    min_dimension: 1.0
+  generative:
+    engine: "stability"  # stability, openai, local
+    style_presets:
+      calm: "watercolor, serene, peaceful, soft edges"
+      focus: "geometric, precise, structured, sharp edges"
+      creative: "abstract, flowing, dynamic, colorful"
+
+vr:
+  host: "localhost"
+  port: 8765
+  protocol: "websocket"
+  transparency:
+    min_blend: 0.1
+    max_blend: 0.8
+    focus_blend_curve: "exponential"
+
+logging:
+  enabled: true
+  directory: "./data/logs"
+  max_file_size_mb: 100
+  log_frequency_hz: 1
+4. src/eeg_processing/emotiv_reader.py
+python
+"""
+EEG Data Acquisition and Processing for EMOTIV devices
+"""
+
+import asyncio
+import numpy as np
+from typing import Dict, List, Optional
+import pylsl
+from loguru import logger
+
+class EmotivEEGReader:
+    """Handles real-time EEG data acquisition from EMOTIV devices"""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.sampling_rate = config.get('sampling_rate', 128)
+        self.channels = config.get('channels', [])
+        self.metrics = config.get('metrics', [])
+        
+        self.inlet = None
+        self.is_connected = False
+        self.buffer = []
+        self.buffer_size = 256
+        
+        self.connect()
+    
+    def connect(self):
+        """Connect to EMOTIV EEG stream via LSL"""
+        try:
+            # Resolve EEG stream
+            streams = pylsl.resolve_stream('type', 'EEG')
+            if not streams:
+                logger.warning("No EEG streams found. Using simulator.")
+                self.is_connected = False
+                return
+            
+            # Create inlet
+            self.inlet = pylsl.StreamInlet(streams[0])
+            self.is_connected = True
+            logger.info(f"Connected to EEG stream: {streams[0].name()}")
+            
+        except Exception as e:
+            logger.error(f"EEG connection failed: {e}")
+            self.is_connected = False
+    
+    async def get_multi_modal_data(self) -> Dict:
+        """Get multi-modal sensor data including EEG, eye tracking, and HRV"""
+        if not self.is_connected:
+            return self._get_simulated_data()
+        
+        try:
+            # Get EEG sample
+            sample, timestamp = self.inlet.pull_sample(timeout=0.1)
+            if sample is None:
+                return self._get_simulated_data()
+            
+            # Process EEG data
+            eeg_metrics = self._extract_eeg_metrics(sample)
+            
+            # Simulate other sensors (replace with actual sensors in production)
+            eye_tracking = self._simulate_eye_tracking()
+            hrv_data = self._simulate_hrv()
+            
+            return {
+                'eeg': eeg_metrics,
+                'eye_tracking': eye_tracking,
+                'hrv': hrv_data,
+                'timestamp': timestamp,
+                'quality': self._assess_data_quality(sample)
+            }
+            
+        except Exception as e:
+            logger.warning(f"EEG data acquisition error: {e}")
+            return self._get_simulated_data()
+    
+    def _extract_eeg_metrics(self, sample: List[float]) -> Dict[str, float]:
+        """Extract cognitive metrics from raw EEG sample"""
+        # Convert to numpy array
+        eeg_data = np.array(sample)
+        
+        # Simple band power calculation (replace with actual EMOTIV metric extraction)
+        if len(eeg_data) >= 5:
+            # Simulate metric extraction - replace with actual algorithm
+            return {
+                'focus': max(0, min(1, np.mean(eeg_data[:3]) / 100)),
+                'relaxation': max(0, min(1, np.mean(eeg_data[2:5]) / 100)),
+                'engagement': max(0, min(1, np.std(eeg_data) / 50)),
+                'stress': max(0, min(1, (100 - np.mean(eeg_data)) / 100)),
+                'excitement': max(0, min(1, np.var(eeg_data) / 1000))
+            }
+        else:
+            return {metric: 0.5 for metric in self.metrics}
+    
+    def _simulate_eye_tracking(self) -> Dict:
+        """Simulate eye tracking data (replace with actual eye tracker)"""
+        return {
+            'blink_rate': np.random.normal(0.2, 0.05),  # blinks per second
+            'pupil_size': np.random.normal(3.5, 0.5),   # mm
+            'gaze_stability': np.random.uniform(0.7, 0.95),
+            'saccade_rate': np.random.normal(2.0, 0.5)  # saccades per second
+        }
+    
+    def _simulate_hrv(self) -> Dict:
+        """Simulate HRV data (replace with actual HRV sensor)"""
+        return {
+            'hr_mean': np.random.normal(70, 5),        # beats per minute
+            'hrv_rmssd': np.random.normal(40, 10),     # ms
+            'hrv_lf_hf': np.random.normal(1.5, 0.3)    # ratio
+        }
+    
+    def _assess_data_quality(self, sample: List[float]) -> float:
+        """Assess quality of EEG data (0-1, where 1 is best)"""
+        if not sample:
+            return 0.0
+        
+        # Check for flat lines (poor contact)
+        if np.std(sample) < 1.0:
+            return 0.1
+        
+        # Check for extreme values (artifacts)
+        if max(abs(np.array(sample))) > 500:
+            return 0.3
+        
+        return 0.9  # Good quality
+    
+    def _get_simulated_data(self) -> Dict:
+        """Get simulated data when no real device is connected"""
+        base_metrics = {metric: np.random.normal(0.5, 0.1) for metric in self.metrics}
+        
+        return {
+            'eeg': base_metrics,
+            'eye_tracking': self._simulate_eye_tracking(),
+            'hrv': self._simulate_hrv(),
+            'timestamp': asyncio.get_event_loop().time(),
+            'quality': 0.0  # Simulated data
+        }
+5. src/cognitive_interpreter/llm_interpreter.py
+python
+"""
+LLM-based Cognitive State Interpretation
+Uses language models to provide semantic understanding of cognitive states
+"""
+
+import asyncio
+from typing import Dict, List
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+import torch
+from loguru import logger
+
+class CognitiveStateInterpreter:
+    """Interprets multi-modal sensor data using LLMs"""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.model_name = config.get('model', 'microsoft/DialoGPT-medium')
+        self.max_tokens = config.get('max_tokens', 150)
+        self.temperature = config.get('temperature', 0.7)
+        
+        self.llm = None
+        self.tokenizer = None
+        self.model_loaded = False
+        
+        self.load_model()
+    
+    def load_model(self):
+        """Load the LLM model"""
+        try:
+            logger.info(f"Loading LLM model: {self.model_name}")
+            
+            # Use a smaller model for real-time performance
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                device_map="auto"
+            )
+            
+            # Create text generation pipeline
+            self.llm = pipeline(
+                "text-generation",
+                model=self.model,
+                tokenizer=self.tokenizer,
+                max_new_tokens=self.max_tokens,
+                temperature=self.temperature,
+                pad_token_id=self.tokenizer.eos_token_id
+            )
+            
+            self.model_loaded = True
+            logger.info("LLM model loaded successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to load LLM model: {e}")
+            self.model_loaded = False
+    
+    async def interpret_state(self, sensor_data: Dict) -> Dict:
+        """Interpret cognitive state from multi-modal sensor data"""
+        if not self.model_loaded:
+            return self._fallback_interpretation(sensor_data)
+        
+        try:
+            # Create detailed prompt from sensor data
+            prompt = self._create_interpretation_prompt(sensor_data)
+            
+            # Generate interpretation (run in thread to avoid blocking)
+            interpretation = await asyncio.get_event_loop().run_in_executor(
+                None, self._generate_interpretation, prompt
+            )
+            
+            # Parse the LLM output
+            parsed_state = self._parse_interpretation(interpretation, sensor_data)
+            return parsed_state
+            
+        except Exception as e:
+            logger.warning(f"LLM interpretation failed: {e}")
+            return self._fallback_interpretation(sensor_data)
+    
+    def _create_interpretation_prompt(self, sensor_data: Dict) -> str:
+        """Create a prompt for the LLM based on sensor data"""
+        
+        eeg = sensor_data.get('eeg', {})
+        eye_tracking = sensor_data.get('eye_tracking', {})
+        hrv = sensor_data.get('hrv', {})
+        
+        prompt = f"""
+        As an expert cognitive neuroscientist, analyze this real-time physiological data and provide a concise cognitive state assessment.
+        
+        EEG METRICS (0-1 scale):
+        - Focus: {eeg.get('focus', 0.5):.2f}
+        - Relaxation: {eeg.get('relaxation', 0.5):.2f}
+        - Engagement: {eeg.get('engagement', 0.5):.2f}
+        - Stress: {eeg.get('stress', 0.5):.2f}
+        - Excitement: {eeg.get('excitement', 0.5):.2f}
+        
+        EYE TRACKING:
+        - Blink rate: {eye_tracking.get('blink_rate', 0.2):.2f} Hz (normal: 0.1-0.3)
+        - Pupil size: {eye_tracking.get('pupil_size', 3.5):.2f} mm
+        - Gaze stability: {eye_tracking.get('gaze_stability', 0.8):.2f}
+        
+        HEART RATE VARIABILITY:
+        - Mean HR: {hrv.get('hr_mean', 70):.0f} BPM
+        - RMSSD: {hrv.get('hrv_rmssd', 40):.0f} ms (higher = more relaxed)
+        - LF/HF ratio: {hrv.get('hrv_lf_hf', 1.5):.2f} (balance of sympathetic/parasympathetic)
+        
+        DATA QUALITY: {sensor_data.get('quality', 0):.1f}/1.0
+        
+        Provide a brief analysis (2-3 sentences) covering:
+        1. Current cognitive state (focused, distracted, relaxed, stressed, etc.)
+        2. Likely causes based on physiological patterns
+        3. Recommended stimulus adjustments to optimize state
+        
+        Focus on patterns that indicate optimal flow state, cognitive overload, or under-stimulation.
+        
+        ANALYSIS:
+        """
+        
+        return prompt
+    
+    def _generate_interpretation(self, prompt: str) -> str:
+        """Generate interpretation using the LLM"""
+        try:
+            result = self.llm(
+                prompt,
+                max_new_tokens=self.max_tokens,
+                temperature=self.temperature,
+                do_sample=True,
+                num_return_sequences=1
+            )
+            
+            return result[0]['generated_text']
+            
+        except Exception as e:
+            logger.error(f"LLM generation error: {e}")
+            return "Cognitive state: Unable to analyze. Using fallback metrics."
+    
+    def _parse_interpretation(self, interpretation: str, sensor_data: Dict) -> Dict:
+        """Parse the LLM output into structured cognitive state data"""
+        
+        # Extract key information from the interpretation
+        # This is a simplified parser - you might want to use more sophisticated NLP techniques
+        
+        analysis_text = interpretation.split("ANALYSIS:")[-1].strip()
+        
+        # Simple keyword matching for state classification
+        text_lower = analysis_text.lower()
+        
+        # Determine primary cognitive state
+        if any(word in text_lower for word in ['focus', 'concentrat', 'attentive']):
+            primary_state = 'focused'
+        elif any(word in text_lower for word in ['relax', 'calm', 'peaceful']):
+            primary_state = 'relaxed'
+        elif any(word in text_lower for word in ['stress', 'anxious', 'overwhelm']):
+            primary_state = 'stressed'
+        elif any(word in text_lower for word in ['fatigue', 'tired', 'exhaust']):
+            primary_state = 'fatigued'
+        else:
+            primary_state = 'neutral'
+        
+        # Calculate confidence based on text coherence and specificity
+        confidence = min(1.0, len(analysis_text) / 100)
+        
+        return {
+            'primary_state': primary_state,
+            'analysis_text': analysis_text,
+            'confidence': confidence,
+            'raw_metrics': sensor_data.get('eeg', {}),
+            'recommendations': self._extract_recommendations(analysis_text)
+        }
+    
+    def _extract_recommendations(self, analysis: str) -> List[str]:
+        """Extract stimulus recommendations from analysis text"""
+        recommendations = []
+        text_lower = analysis.lower()
+        
+        if 'increase' in text_lower and 'complex' in text_lower:
+            recommendations.append('increase_complexity')
+        if 'decrease' in text_lower and 'complex' in text_lower:
+            recommendations.append('decrease_complexity')
+        if 'calm' in text_lower or 'relax' in text_lower:
+            recommendations.append('soothing_colors')
+        if 'focus' in text_lower or 'stimulat' in text_lower:
+            recommendations.append('engaging_patterns')
+            
+        return recommendations if recommendations else ['maintain_current']
+    
+    def _fallback_interpretation(self, sensor_data: Dict) -> Dict:
+        """Fallback interpretation when LLM is unavailable"""
+        eeg = sensor_data.get('eeg', {})
+        
+        # Simple rule-based fallback
+        focus = eeg.get('focus', 0.5)
+        relaxation = eeg.get('relaxation', 0.5)
+        
+        if focus > 0.7 and relaxation > 0.6:
+            state = 'flow'
+        elif focus < 0.3:
+            state = 'distracted'
+        elif relaxation < 0.3:
+            state = 'stressed'
+        else:
+            state = 'neutral'
+        
+        return {
+            'primary_state': state,
+            'analysis_text': f'Fallback analysis: {state} state detected',
+            'confidence': 0.5,
+            'raw_metrics': eeg,
+            'recommendations': ['maintain_current']
+        }
+6. src/agentic_controller/hierarchical_controller.py
+python
+"""
+Hierarchical Agentic Controller
+Three-layer system for cognitive state adaptation
+"""
+
+import time
+from typing import Dict, List
+from dataclasses import dataclass
+from loguru import logger
+
+@dataclass
+class CognitiveStrategy:
+    """Definition of a cognitive adaptation strategy"""
+    name: str
+    target_state: Dict[str, float]  # Target cognitive metrics
+    stimulus_parameters: Dict       # Associated stimulus parameters
+    priority: int                   # Strategy priority (1-10)
+
+class CognitiveAgent:
+    """Base class for all cognitive agents"""
+    def __init__(self, config: Dict):
+        self.config = config
+        self.last_update = time.time()
+    
+    def decide_action(self, current_state: Dict, history: List[Dict]) -> Dict:
+        """Decide on adaptation action based on current state and history"""
+        raise NotImplementedError
+
+class FastReflexAgent(CognitiveAgent):
+    """Millisecond-level reactive agent for immediate adjustments"""
+    
+    def decide_action(self, current_state: Dict, history: List[Dict]) -> Dict:
+        """Make quick reflex actions based on immediate state changes"""
+        reflexes = {}
+        
+        # Get current metrics
+        metrics = current_state.get('raw_metrics', {})
+        focus = metrics.get('focus', 0.5)
+        relaxation = metrics.get('relaxation', 0.5)
+        
+        # Quick reflex rules
+        if focus < self.config.get('thresholds', {}).get('focus_low', 0.3):
+            reflexes['urgency'] = 'high'
+            reflexes['action'] = 'reduce_complexity_immediate'
+            reflexes['magnitude'] = 0.8
+            
+        elif relaxation < self.config.get('thresholds', {}).get('relaxation_low', 0.2):
+            reflexes['urgency'] = 'medium'
+            reflexes['action'] = 'calming_pattern'
+            reflexes['magnitude'] = 0.6
+            
+        return reflexes
+
+class StrategyAgent(CognitiveAgent):
+    """Minute-level strategic agent for cognitive state optimization"""
+    
+    def __init__(self, config: Dict):
+        super().__init__(config)
+        self.strategies = self._initialize_strategies()
+        self.current_strategy = None
+    
+    def _initialize_strategies(self) -> List[CognitiveStrategy]:
+        """Initialize available cognitive strategies"""
+        strategy_configs = self.config.get('strategies', {})
+        
+        strategies = []
+        for name, config in strategy_configs.items():
+            strategy = CognitiveStrategy(
+                name=name,
+                target_state=config.get('target_state', {}),
+                stimulus_parameters=config.get('stimulus', {}),
+                priority=config.get('priority', 5)
+            )
+            strategies.append(strategy)
+        
+        return sorted(strategies, key=lambda x: x.priority, reverse=True)
+    
+    def decide_action(self, current_state: Dict, history: List[Dict]) -> Dict:
+        """Select and execute cognitive strategy"""
+        if not history:
+            return {}
+        
+        # Analyze state trends
+        trend = self._analyze_trends(history)
+        
+        # Select best strategy based on current state and trends
+        best_strategy = self._select_strategy(current_state, trend)
+        self.current_strategy = best_strategy
+        
+        if best_strategy:
+            return {
+                'strategy': best_strategy.name,
+                'parameters': best_strategy.stimulus_parameters,
+                'confidence': self._calculate_confidence(current_state, best_strategy)
+            }
+        
+        return {}
+    
+    def _analyze_trends(self, history: List[Dict]) -> Dict:
+        """Analyze trends in cognitive state over time"""
+        if len(history) < 3:
+            return {'trend': 'insufficient_data'}
+        
+        recent = history[-3:]
+        focus_trend = sum(state['raw_metrics'].get('focus', 0.5) for state in recent) / 3
+        relax_trend = sum(state['raw_metrics'].get('relaxation', 0.5) for state in recent) / 3
+        
+        return {
+            'focus_trend': focus_trend,
+            'relaxation_trend': relax_trend,
+            'stability': self._calculate_stability(history)
+        }
+    
+    def _select_strategy(self, current_state: Dict, trend: Dict) -> CognitiveStrategy:
+        """Select the most appropriate strategy"""
+        current_metrics = current_state.get('raw_metrics', {})
+        
+        # Score each strategy based on current state
+        best_score = -float('inf')
+        best_strategy = None
+        
+        for strategy in self.strategies:
+            score = self._score_strategy(strategy, current_metrics, trend)
+            if score > best_score:
+                best_score = score
+                best_strategy = strategy
+        
+        return best_strategy
+    
+    def _score_strategy(self, strategy: CognitiveStrategy, metrics: Dict, trend: Dict) -> float:
+        """Score a strategy based on how well it matches current state"""
+        score = 0.0
+        
+        for metric, target in strategy.target_state.items():
+            current_value = metrics.get(metric, 0.5)
+            # Higher score for strategies that bring us closer to target
+            distance = abs(current_value - target)
+            score += (1 - distance) * 10  # Weight based on importance
+        
+        return score
+    
+    def _calculate_stability(self, history: List[Dict]) -> float:
+        """Calculate stability of cognitive state (0-1)"""
+        if len(history) < 2:
+            return 0.5
+        
+        variances = []
+        for metric in ['focus', 'relaxation', 'engagement']:
+            values = [state['raw_metrics'].get(metric, 0.5) for state in history]
+            variance = np.var(values)
+            variances.append(variance)
+        
+        avg_variance = np.mean(variances)
+        stability = 1.0 / (1.0 + avg_variance)  # Convert to 0-1 scale
+        return min(1.0, stability)
+    
+    def _calculate_confidence(self, current_state: Dict, strategy: CognitiveStrategy) -> float:
+        """Calculate confidence in strategy selection"""
+        confidence = current_state.get('confidence', 0.5)
+        stability = self._calculate_stability([current_state])
+        return (confidence + stability) / 2
+
+class MetaLearningAgent(CognitiveAgent):
+    """Long-term learning agent for personalization across sessions"""
+    
+    def __init__(self, config: Dict):
+        super().__init__(config)
+        self.user_model = {}
+        self.session_history = []
+        self.learning_rate = config.get('learning_rate', 0.1)
+    
+    def decide_action(self, current_state: Dict, history: List[Dict]) -> Dict:
+        """Provide meta-level recommendations based on learned user model"""
+        if not self.user_model:
+            self.user_model = self._initialize_user_model()
+        
+        # Update model with current session data
+        self._update_user_model(current_state, history)
+        
+        # Generate personalized recommendations
+        recommendations = self._generate_personalized_recommendations(current_state)
+        
+        return {
+            'personalization': recommendations,
+            'user_model_confidence': self._calculate_model_confidence()
+        }
+    
+    def _initialize_user_model(self) -> Dict:
+        """Initialize the user model with default values"""
+        return {
+            'preferred_complexity': 1.3,
+            'optimal_focus_range': [0.6, 0.8],
+            'stress_triggers': [],
+            'effective_strategies': {},
+            'learning_preferences': {}
+        }
+    
+    def _update_user_model(self, current_state: Dict, history: List[Dict]):
+        """Update user model based on current session data"""
+        if not history:
+            return
+        
+        # Update preferred complexity based on successful states
+        successful_states = [s for s in history if s['primary_state'] in ['flow', 'focused']]
+        if successful_states:
+            avg_complexity = np.mean([s.get('stimulus_complexity', 1.3) for s in successful_states])
+            # Exponential moving average update
+            current_pref = self.user_model['preferred_complexity']
+            new_pref = current_pref + self.learning_rate * (avg_complexity - current_pref)
+            self.user_model['preferred_complexity'] = new_pref
+    
+    def _generate_personalized_recommendations(self, current_state: Dict) -> Dict:
+        """Generate personalized recommendations based on user model"""
+        return {
+            'preferred_complexity': self.user_model['preferred_complexity'],
+            'suggested_strategies': self._get_effective_strategies(),
+            'adaptation_pace': self._calculate_adaptation_pace()
+        }
+    
+    def _get_effective_strategies(self) -> List[str]:
+        """Get strategies that have been effective for this user"""
+        # Simplified implementation
+        return ['induce_calm', 'challenge_focus']
+    
+    def _calculate_adaptation_pace(self) -> float:
+        """Calculate how quickly to adapt for this user (0-1)"""
+        return 0.7  # Default medium pace
+    
+    def _calculate_model_confidence(self) -> float:
+        """Calculate confidence in the user model (0-1)"""
+        session_count = len(self.session_history)
+        return min(1.0, session_count / 10.0)  # More sessions = more confidence
+
+class HierarchicalController:
+    """Orchestrates the three agent layers"""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.reflex_agent = FastReflexAgent(config.get('reflex', {}))
+        self.strategy_agent = StrategyAgent(config.get('strategy', {}))
+        self.meta_agent = MetaLearningAgent(config.get('meta', {}))
+        
+        self.state_history = []
+        self.max_history = 100
+    
+    def process_state(self, cognitive_state: Dict) -> Dict:
+        """Process cognitive state through all agent layers"""
+        # Add to history
+        self.state_history.append(cognitive_state)
+        if len(self.state_history) > self.max_history:
+            self.state_history.pop(0)
+        
+        # Get actions from each layer
+        reflex_action = self.reflex_agent.decide_action(cognitive_state, self.state_history)
+        strategy_action = self.strategy_agent.decide_action(cognitive_state, self.state_history)
+        meta_action = self.meta_agent.decide_action(cognitive_state, self.state_history)
+        
+        # Integrate actions (reflex overrides strategy, meta provides guidance)
+        integrated_action = self._integrate_actions(reflex_action, strategy_action, meta_action)
+        
+        logger.debug(f"Integrated action: {integrated_action}")
+        return integrated_action
+    
+    def _integrate_actions(self, reflex: Dict, strategy: Dict, meta: Dict) -> Dict:
+        """Integrate actions from all three layers"""
+        integrated = {
+            'timestamp': time.time(),
+            'reflex': reflex,
+            'strategy': strategy,
+            'meta': meta,
+            'final_decision': {}
+        }
+        
+        # Reflex actions have highest priority for immediate responses
+        if reflex.get('urgency') == 'high':
+            integrated['final_decision'] = {
+                'action': reflex.get('action', 'maintain'),
+                'parameters': reflex,
+                'priority': 'reflex'
+            }
+        elif strategy.get('strategy'):
+            integrated['final_decision'] = {
+                'action': 'execute_strategy',
+                'strategy': strategy['strategy'],
+                'parameters': strategy['parameters'],
+                'confidence': strategy.get('confidence', 0.5),
+                'priority': 'strategy'
+            }
+        else:
+            integrated['final_decision'] = {
+                'action': 'maintain',
+                'parameters': {},
+                'priority': 'none'
+            }
+        
+        # Add meta-level personalization to all decisions
+        if meta.get('personalization'):
+            integrated['final_decision']['personalization'] = meta['personalization']
+        
+        return integrated
+7. src/generative_content/content_manager.py
+python
+"""
+Generative Content Management System
+Creates adaptive visual content based on cognitive state
+"""
+
+import numpy as np
+from typing import Dict, Optional
+from PIL import Image
+import cv2
+from loguru import logger
+
+class FractalGenerator:
+    """Generates fractal patterns with adaptive complexity"""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.base_dimension = config.get('base_dimension', 1.3)
+        self.dimension_step = config.get('dimension_step', 0.015)
+        
+    def generate_mandelbrot(self, width: int, height: int, dimension: float, 
+                           color_scheme: str = 'default') -> Image.Image:
+        """Generate a Mandelbrot fractal with specified dimension"""
+        
+        # Constrain dimension to valid range
+        dimension = max(1.0, min(2.0, dimension))
+        
+        # Create fractal pattern
+        x = np.linspace(-2.0, 1.0, width)
+        y = np.linspace(-1.5, 1.5, height)
+        X, Y = np.meshgrid(x, y)
+        Z = X + 1j * Y
+        
+        # Fractal calculation with adaptive complexity
+        fractal = np.zeros(Z.shape, dtype=float)
+        C = Z.copy()
+        
+        for i in range(100):
+            Z = Z**2 + C
+            fractal += np.exp(-np.abs(Z))
+            mask = np.abs(Z) > 2.0
+            Z[mask] = 0
+            C[mask] = 0
+        
+        # Apply dimension-based scaling
+        fractal = np.log(fractal + 1)
+        fractal = (fractal / fractal.max() * 255).astype(np.uint8)
+        
+        # Apply color scheme
+        colored_fractal = self._apply_color_scheme(fractal, color_scheme)
+        
+        return Image.fromarray(colored_fractal)
+    
+    def _apply_color_scheme(self, fractal: np.ndarray, scheme: str) -> np.ndarray:
+        """Apply color scheme to fractal pattern"""
+        if scheme == 'cool':
+            colormap = cv2.COLORMAP_OCEAN
+        elif scheme == 'warm':
+            colormap = cv2.COLORMAP_HOT
+        elif scheme == 'psych':
+            colormap = cv2.COLORMAP_RAINBOW
+        else:  # default
+            colormap = cv2.COLORMAP_VIRIDIS
+            
+        return cv2.applyColorMap(fractal, colormap)
+
+class StableDiffusionClient:
+    """Client for generative AI content creation"""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.engine = config.get('engine', 'stability')
+        self.style_presets = config.get('style_presets', {})
+        
+    def generate_semantic_content(self, prompt: str, parameters: Dict) -> Image.Image:
+        """Generate semantic content using Stable Diffusion"""
+        
+        # In a real implementation, this would call an actual SD API
+        # For now, we'll create a placeholder pattern
+        
+        width = parameters.get('width', 512)
+        height = parameters.get('height', 512)
+        
+        # Create a simple generative pattern based on the prompt
+        if 'calm' in prompt.lower():
+            return self._generate_calm_pattern(width, height)
+        elif 'focus' in prompt.lower():
+            return self._generate_focus_pattern(width, height)
+        else:
+            return self._generate_neutral_pattern(width, height)
+    
+    def _generate_calm_pattern(self, width: int, height: int) -> Image.Image:
+        """Generate a calming visual pattern"""
+        # Create flowing, organic pattern
+        x = np.linspace(0, 4*np.pi, width)
+        y = np.linspace(0, 4*np.pi, height)
+        X, Y = np.meshgrid(x, y)
+        
+        pattern = np.sin(X) * np.cos(Y) + np.sin(0.5*X) * np.cos(0.5*Y)
+        pattern = (pattern - pattern.min()) / (pattern.max() - pattern.min()) * 255
+        pattern = pattern.astype(np.uint8)
+        
+        # Cool blue colors
+        colored = cv2.applyColorMap(pattern, cv2.COLORMAP_OCEAN)
+        return Image.fromarray(colored)
+    
+    def _generate_focus_pattern(self, width: int, height: int) -> Image.Image:
+        """Generate a focus-enhancing visual pattern"""
+        # Create geometric, structured pattern
+        x = np.linspace(-2, 2, width)
+        y = np.linspace(-2, 2, height)
+        X, Y = np.meshgrid(x, y)
+        
+        pattern = np.sin(X**2 + Y**2) + np.sin(2*X) + np.cos(2*Y)
+        pattern = (pattern - pattern.min()) / (pattern.max() - pattern.min()) * 255
+        pattern = pattern.astype(np.uint8)
+        
+        # Warm, stimulating colors
+        colored = cv2.applyColorMap(pattern, cv2.COLORMAP_HOT)
+        return Image.fromarray(colored)
+    
+    def _generate_neutral_pattern(self, width: int, height: int) -> Image.Image:
+        """Generate a neutral visual pattern"""
+        # Balanced pattern
+        noise = np.random.rand(height, width) * 255
+        noise = noise.astype(np.uint8)
+        colored = cv2.applyColorMap(noise, cv2.COLORMAP_VIRIDIS)
+        return Image.fromarray(colored)
+
+class ContentManager:
+    """Manages content generation and adaptation"""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.fractal_generator = FractalGenerator(config.get('fractal', {}))
+        self.sd_client = StableDiffusionClient(config.get('generative', {}))
+        
+        self.current_content = None
+        self.content_history = []
+    
+    def generate_adaptive_content(self, adaptation: Dict) -> Dict:
+        """Generate adaptive content based on cognitive state adaptation"""
+        
+        decision = adaptation.get('final_decision', {})
+        action = decision.get('action', 'maintain')
+        parameters = decision.get('parameters', {})
+        
+        if action == 'reduce_complexity_immediate':
+            content = self._generate_calming_content(parameters)
+        elif action == 'execute_strategy':
+            content = self._generate_strategy_content(decision)
+        else:  # maintain or unknown
+            content = self._generate_maintenance_content()
+        
+        # Add metadata
+        content['adaptation'] = adaptation
+        content['timestamp'] = adaptation.get('timestamp', 0)
+        
+        self.current_content = content
+        self.content_history.append(content)
+        
+        return content
+    
+    def _generate_calming_content(self, parameters: Dict) -> Dict:
+        """Generate content for immediate stress reduction"""
+        magnitude = parameters.get('magnitude', 0.5)
+        
+        # Low complexity fractal
+        dimension = max(1.0, 1.3 - magnitude * 0.3)
+        fractal = self.fractal_generator.generate_mandelbrot(
+            512, 512, dimension, 'cool'
+        )
+        
+        return {
+            'type': 'fractal',
+            'content': fractal,
+            'parameters': {
+                'fractal_dimension': dimension,
+                'color_scheme': 'cool',
+                'movement': 'slow'
+            },
+            'intent': 'calm_immediate'
+        }
+    
+    def _generate_strategy_content(self, decision: Dict) -> Dict:
+        """Generate content based on cognitive strategy"""
+        strategy = decision.get('strategy', 'induce_calm')
+        parameters = decision.get('parameters', {})
+        
+        if strategy == 'induce_calm':
+            return self._generate_calm_strategy_content(parameters)
+        elif strategy == 'challenge_focus':
+            return self._generate_focus_strategy_content(parameters)
+        else:
+            return self._generate_neutral_content()
+    
+    def _generate_calm_strategy_content(self, parameters: Dict) -> Dict:
+        """Generate content for calm induction strategy"""
+        dimension = parameters.get('fractal_dim', 1.2)
+        color_scheme = parameters.get('color_scheme', 'cool')
+        
+        fractal = self.fractal_generator.generate_mandelbrot(
+            512, 512, dimension, color_scheme
+        )
+        
+        return {
+            'type': 'fractal',
+            'content': fractal,
+            'parameters': parameters,
+            'intent': 'induce_calm'
+        }
+    
+    def _generate_focus_strategy_content(self, parameters: Dict) -> Dict:
+        """Generate content for focus challenge strategy"""
+        dimension = parameters.get('fractal_dim', 1.6)
+        color_scheme = parameters.get('color_scheme', 'warm')
+        
+        # Use generative AI for more engaging content
+        prompt = self._create_focus_prompt(parameters)
+        content = self.sd_client.generate_semantic_content(prompt, parameters)
+        
+        return {
+            'type': 'generative',
+            'content': content,
+            'parameters': parameters,
+            'intent': 'challenge_focus',
+            'prompt': prompt
+        }
+    
+    def _generate_maintenance_content(self) -> Dict:
+        """Generate maintenance content when no adaptation is needed"""
+        # Continue with current content or generate neutral content
+        if self.current_content:
+            return self.current_content
+        
+        fractal = self.fractal_generator.generate_mandelbrot(512, 512, 1.3, 'default')
+        
+        return {
+            'type': 'fractal',
+            'content': fractal,
+            'parameters': {'fractal_dimension': 1.3},
+            'intent': 'maintain'
+        }
+    
+    def _generate_neutral_content(self) -> Dict:
+        """Generate neutral content as fallback"""
+        fractal = self.fractal_generator.generate_mandelbrot(512, 512, 1.3, 'default')
+        
+        return {
+            'type': 'fractal',
+            'content': fractal,
+            'parameters': {'fractal_dimension': 1.3},
+            'intent': 'neutral'
+        }
+    
+    def _create_focus_prompt(self, parameters: Dict) -> str:
+        """Create a prompt for focus-enhancing content"""
+        base_prompt = "A fractal pattern that enhances focus and concentration, "
+        
+        if parameters.get('color_scheme') == 'warm':
+            base_prompt += "with warm colors like red and orange, "
+        else:
+            base_prompt += "with stimulating colors, "
+            
+        base_prompt += "geometric patterns, precise edges, mathematical beauty"
+        
+        return base_prompt
+8. src/vr_integration/vr_bridge.py
+python
+"""
+VR Communication Bridge
+Handles real-time communication with Unity VR application
+"""
+
+import asyncio
+import websockets
+import json
+import base64
+from io import BytesIO
+from typing import Dict, Set
+from loguru import logger
+
+class VRCommunicationBridge:
+    """Manages WebSocket communication with Unity VR client"""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.host = config.get('host', 'localhost')
+        self.port = config.get('port', 8765)
+        self.connected_clients: Set[websockets.WebSocketServerProtocol] = set()
+        self.server = None
+        
+    async def start_server(self):
+        """Start the WebSocket server"""
+        self.server = await websockets.serve(
+            self.handle_client, 
+            self.host, 
+            self.port
+        )
+        logger.info(f"VR Bridge server started on {self.host}:{self.port}")
+        
+    async def stop_server(self):
+        """Stop the WebSocket server"""
+        if self.server:
+            self.server.close()
+            await self.server.wait_closed()
+            logger.info("VR Bridge server stopped")
+            
+    async def handle_client(self, websocket, path):
+        """Handle incoming WebSocket connections"""
+        self.connected_clients.add(websocket)
+        client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
+        logger.info(f"VR client connected: {client_info}")
+        
+        try:
+            async for message in websocket:
+                await self.handle_message(websocket, message)
+                
+        except websockets.exceptions.ConnectionClosed:
+            logger.info(f"VR client disconnected: {client_info}")
+        except Exception as e:
+            logger.error(f"Error with client {client_info}: {e}")
+        finally:
+            self.connected_clients.remove(websocket)
+            
+    async def handle_message(self, websocket, message: str):
+        """Handle incoming messages from VR client"""
+        try:
+            data = json.loads(message)
+            message_type = data.get('type', 'unknown')
+            
+            if message_type == 'sensor_data':
+                # VR client is sending sensor data
+                await self.handle_sensor_data(data)
+            elif message_type == 'status':
+                # VR client status update
+                logger.debug(f"VR client status: {data.get('status', 'unknown')}")
+            else:
+                logger.warning(f"Unknown message type: {message_type}")
+                
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON message: {e}")
+            
+    async def handle_sensor_data(self, data: Dict):
+        """Handle sensor data from VR client"""
+        # In a full implementation, this would trigger cognitive processing
+        logger.debug(f"Received sensor data: {data.keys()}")
+        
+    async def send_adaptation(self, content: Dict, cognitive_state: Dict):
+        """Send adaptation instructions to VR client"""
+        if not self.connected_clients:
+            return
+            
+        message = self._create_adaptation_message(content, cognitive_state)
+        message_json = json.dumps(message)
+        
+        # Send to all connected clients
+        disconnected_clients = set()
+        for client in self.connected_clients:
+            try:
+                await client.send(message_json)
+            except websockets.exceptions.ConnectionClosed:
+                disconnected_clients.add(client)
+                
+        # Remove disconnected clients
+        for client in disconnected_clients:
+            self.connected_clients.remove(client)
+            
+    def _create_adaptation_message(self, content: Dict, cognitive_state: Dict) -> Dict:
+        """Create adaptation message for VR client"""
+        
+        # Convert image to base64 if present
+        content_data = None
+        if content.get('content') and hasattr(content['content'], 'save'):
+            content_data = self._image_to_base64(content['content'])
+            
+        return {
+            'type': 'adaptation',
+            'timestamp': cognitive_state.get('timestamp', 0),
+            'cognitive_state': {
+                'primary_state': cognitive_state.get('primary_state', 'unknown'),
+                'confidence': cognitive_state.get('confidence', 0.5),
+                'analysis': cognitive_state.get('analysis_text', '')
+            },
+            'content_adaptation': {
+                'type': content.get('type', 'fractal'),
+                'intent': content.get('intent', 'maintain'),
+                'parameters': content.get('parameters', {}),
+                'content_data': content_data  # Base64 encoded image
+            },
+            'vr_parameters': self._calculate_vr_parameters(cognitive_state)
+        }
+    
+    def _calculate_vr_parameters(self, cognitive_state: Dict) -> Dict:
+        """Calculate VR-specific parameters based on cognitive state"""
+        state = cognitive_state.get('primary_state', 'neutral')
+        
+        # Adjust VR transparency based on cognitive state
+        transparency_config = self.config.get('transparency', {})
+        min_blend = transparency_config.get('min_blend', 0.1)
+        max_blend = transparency_config.get('max_blend', 0.8)
+        
+        if state == 'focused':
+            blend = max_blend  # More virtual content when focused
+        elif state == 'relaxed':
+            blend = (min_blend + max_blend) / 2  # Balanced
+        else:  # stressed, distracted, etc.
+            blend = min_blend  # More real world content
+            
+        return {
+            'transparency_blend': blend,
+            'movement_speed': 1.0,  # Could be adaptive
+            'content_scale': 1.0,
+            'interaction_enabled': True
+        }
+    
+    def _image_to_base64(self, image) -> str:
+        """Convert PIL image to base64 string"""
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode()
+9. unity/Assets/Scripts/VRManager.cs
+csharp
+using UnityEngine;
+using UnityEngine.XR;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using WebSocketSharp;
+using System.Text;
+using System.Collections;
+
+public class VRManager : MonoBehaviour
+{
+    [Header("VR Configuration")]
+    public string serverHost = "localhost";
+    public int serverPort = 8765;
+    public float updateInterval = 0.1f; // 10 Hz
+    
+    [Header("Cognitive Layers")]
+    public List<CognitiveLayer> cognitiveLayers = new List<CognitiveLayer>();
+    public TransparentVROverlay transparentOverlay;
+    
+    private WebSocket webSocket;
+    private CancellationTokenSource cancellationTokenSource;
+    private bool isConnected = false;
+    
+    private CognitiveState currentCognitiveState = new CognitiveState();
+    private AdaptationInstruction currentAdaptation = new AdaptationInstruction();
+    
+    void Start()
+    {
+        InitializeWebSocket();
+        StartCoroutine(UpdateLoop());
+    }
+    
+    void InitializeWebSocket()
+    {
+        try
+        {
+            string serverUrl = $"ws://{serverHost}:{serverPort}";
+            webSocket = new WebSocket(serverUrl);
+            
+            webSocket.OnMessage += OnWebSocketMessage;
+            webSocket.OnOpen += OnWebSocketOpen;
+            webSocket.OnClose += OnWebSocketClose;
+            webSocket.OnError += OnWebSocketError;
+            
+            webSocket.Connect();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"WebSocket initialization failed: {e.Message}");
+        }
+    }
+    
+    void OnWebSocketOpen(object sender, EventArgs e)
+    {
+        isConnected = true;
+        Debug.Log("Connected to CAT-VR server");
+    }
+    
+    void OnWebSocketClose(object sender, CloseEventArgs e)
+    {
+        isConnected = false;
+        Debug.Log("Disconnected from CAT-VR server");
+    }
+    
+    void OnWebSocketError(object sender, ErrorEventArgs e)
+    {
+        Debug.LogError($"WebSocket error: {e.Message}");
+    }
+    
+    void OnWebSocketMessage(object sender, MessageEventArgs e)
+    {
+        if (e.IsText)
+        {
+            ProcessServerMessage(e.Data);
+        }
+    }
+    
+    void ProcessServerMessage(string message)
+    {
+        try
+        {
+            var messageData = JsonUtility.FromJson<ServerMessage>(message);
+            
+            if (messageData.type == "adaptation")
+            {
+                currentAdaptation = messageData.content_adaptation;
+                currentCognitiveState = messageData.cognitive_state;
+                
+                // Apply adaptation to all cognitive layers
+                foreach (var layer in cognitiveLayers)
+                {
+                    layer.AdaptToCognitiveState(currentCognitiveState, currentAdaptation);
+                }
+                
+                // Update VR parameters
+                if (transparentOverlay != null)
+                {
+                    transparentOverlay.SetTransparencyBlend(messageData.vr_parameters.transparency_blend);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to process server message: {e.Message}");
+        }
+    }
+    
+    IEnumerator UpdateLoop()
+    {
+        while (true)
+        {
+            if (isConnected)
+            {
+                SendSensorData();
+            }
+            
+            yield return new WaitForSeconds(updateInterval);
+        }
+    }
+    
+    void SendSensorData()
+    {
+        try
+        {
+            var sensorData = new SensorData
+            {
+                type = "sensor_data",
+                timestamp = Time.time,
+                headset_position = GetHeadsetPosition(),
+                gaze_direction = GetGazeDirection(),
+                controller_input = GetControllerInput()
+                // Add EEG data when integrated with LSL
+            };
+            
+            string jsonData = JsonUtility.ToJson(sensorData);
+            webSocket.Send(jsonData);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"Failed to send sensor data: {e.Message}");
+        }
+    }
+    
+    Vector3 GetHeadsetPosition()
+    {
+        return InputTracking.GetLocalPosition(XRNode.Head);
+    }
+    
+    Vector3 GetGazeDirection()
+    {
+        return Camera.main.transform.forward;
+    }
+    
+    ControllerInput GetControllerInput()
+    {
+        return new ControllerInput
+        {
+            left_trigger = Input.GetAxis("XRI_Left_Trigger"),
+            right_trigger = Input.GetAxis("XRI_Right_Trigger"),
+            // Add more controller inputs as needed
+        };
+    }
+    
+    void OnDestroy()
+    {
+        if (webSocket != null)
+        {
+            webSocket.Close();
+            webSocket = null;
+        }
+        
+        cancellationTokenSource?.Cancel();
+    }
+}
+
+[System.Serializable]
+public class ServerMessage
+{
+    public string type;
+    public float timestamp;
+    public CognitiveState cognitive_state;
+    public AdaptationInstruction content_adaptation;
+    public VRParameters vr_parameters;
+}
+
+[System.Serializable]
+public class CognitiveState
+{
+    public string primary_state;
+    public float confidence;
+    public string analysis;
+}
+
+[System.Serializable]
+public class AdaptationInstruction
+{
+    public string type;
+    public string intent;
+    public Dictionary<string, object> parameters;
+    public string content_data; // Base64 encoded image
+}
+
+[System.Serializable]
+public class VRParameters
+{
+    public float transparency_blend;
+    public float movement_speed;
+    public float content_scale;
+    public bool interaction_enabled;
+}
+
+[System.Serializable]
+public class SensorData
+{
+    public string type;
+    public float timestamp;
+    public Vector3 headset_position;
+    public Vector3 gaze_direction;
+    public ControllerInput controller_input;
+}
+
+[System.Serializable]
+public class ControllerInput
+{
+    public float left_trigger;
+    public float right_trigger;
+}
+10. unity/Assets/Scripts/CognitiveLayer.cs
+csharp
+using UnityEngine;
+using System.Collections.Generic;
+
+public abstract class CognitiveLayer : MonoBehaviour
+{
+    [Header("Cognitive Layer Settings")]
+    public float influenceWeight = 1.0f;
+    public string[] targetStates = { "focused", "relaxed", "flow" };
+    
+    protected CognitiveState currentCognitiveState;
+    protected AdaptationInstruction currentAdaptation;
+    
+    public virtual void AdaptToCognitiveState(CognitiveState state, AdaptationInstruction adaptation)
+    {
+        currentCognitiveState = state;
+        currentAdaptation = adaptation;
+        
+        // Only adapt if this layer is relevant to current state
+        if (IsRelevantState(state.primary_state))
+        {
+            ApplyAdaptation(adaptation);
+        }
+    }
+    
+    protected abstract void ApplyAdaptation(AdaptationInstruction adaptation);
+    
+    protected virtual bool IsRelevantState(string state)
+    {
+        foreach (string targetState in targetStates)
+        {
+            if (state.Contains(targetState))
+                return true;
+        }
+        return false;
+    }
+    
+    protected virtual float CalculateIntensity(float baseIntensity)
+    {
+        return baseIntensity * influenceWeight * currentCognitiveState.confidence;
+    }
+}
+
+public class FractalCognitiveLayer : CognitiveLayer
+{
+    [Header("Fractal Settings")]
+    public Renderer fractalRenderer;
+    public Material fractalMaterial;
+    public float animationSpeed = 1.0f;
+    
+    private Texture2D currentFractalTexture;
+    private float targetComplexity = 1.3f;
+    private float currentComplexity = 1.3f;
+    
+    protected override void ApplyAdaptation(AdaptationInstruction adaptation)
+    {
+        if (adaptation.parameters != null && adaptation.parameters.ContainsKey("fractal_dimension"))
+        {
+            targetComplexity = float.Parse(adaptation.parameters["fractal_dimension"].ToString());
+        }
+        
+        // Smoothly interpolate to target complexity
+        currentComplexity = Mathf.Lerp(currentComplexity, targetComplexity, Time.deltaTime * animationSpeed);
+        
+        UpdateFractalVisuals();
+    }
+    
+    void UpdateFractalVisuals()
+    {
+        if (fractalMaterial != null)
+        {
+            fractalMaterial.SetFloat("_Complexity", currentComplexity);
+            
+            // Update other shader properties based on adaptation
+            if (currentAdaptation.parameters != null)
+            {
+                if (currentAdaptation.parameters.ContainsKey("color_scheme"))
+                {
+                    string colorScheme = currentAdaptation.parameters["color_scheme"].ToString();
+                    UpdateColorScheme(colorScheme);
+                }
+            }
+        }
+    }
+    
+    void UpdateColorScheme(string scheme)
+    {
+        // Update material colors based on scheme
+        switch (scheme.ToLower())
+        {
+            case "cool":
+                fractalMaterial.SetColor("_Color1", Color.blue);
+                fractalMaterial.SetColor("_Color2", Color.cyan);
+                break;
+            case "warm":
+                fractalMaterial.SetColor("_Color1", Color.red);
+                fractalMaterial.SetColor("_Color2", Color.yellow);
+                break;
+            default:
+                fractalMaterial.SetColor("_Color1", Color.white);
+                fractalMaterial.SetColor("_Color2", Color.black);
+                break;
+        }
+    }
+    
+    void Update()
+    {
+        // Continuous animation update
+        if (fractalMaterial != null)
+        {
+            fractalMaterial.SetFloat("_TimeOffset", Time.time * animationSpeed);
+        }
+    }
+}
+
+public class TransparentVROverlay : CognitiveLayer
+{
+    [Header("Transparency Settings")]
+    public Camera mixedRealityCamera;
+    public float minBlend = 0.1f;
+    public float maxBlend = 0.8f;
+    
+    private Material blendMaterial;
+    
+    void Start()
+    {
+        if (mixedRealityCamera != null)
+        {
+            blendMaterial = mixedRealityCamera.GetComponent<Renderer>().material;
+        }
+    }
+    
+    protected override void ApplyAdaptation(AdaptationInstruction adaptation)
+    {
+        // Transparency adaptation handled by VRManager
+    }
+    
+    public void SetTransparencyBlend(float blend)
+    {
+        float clampedBlend = Mathf.Clamp(blend, minBlend, maxBlend);
+        
+        if (blendMaterial != null)
+        {
+            blendMaterial.SetFloat("_BlendAmount", clampedBlend);
+        }
+    }
+}
