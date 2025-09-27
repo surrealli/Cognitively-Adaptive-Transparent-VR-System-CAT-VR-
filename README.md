@@ -4,20 +4,20 @@ A groundbreaking neuroadaptive VR system that integrates real-time EEG monitorin
 
 Research Extension: This project extends the original fractal neurofeedback work by Salimi & Khosrowabadi with modern AI capabilities.
 
-🌟 Features
-🧠 Real-time EEG Integration: EMOTIV EPOC X support with cognitive state monitoring
+Features
+Real-time EEG Integration: EMOTIV EPOC X support with cognitive state monitoring
 
-🤖 LLM Cognitive Interpretation: Semantic understanding of brain states using large language models
+LLM Cognitive Interpretation: Semantic understanding of brain states using large language models
 
-🎮 Hierarchical Agentic Control: Multi-timescale adaptation (reflex, strategy, meta-learning)
+Hierarchical Agentic Control: Multi-timescale adaptation (reflex, strategy, meta-learning)
 
-🎨 Generative Content: AI-driven fractal and semantic visual generation
+Generative Content: AI-driven fractal and semantic visual generation
 
-👓 Transparent VR: Mixed reality with adaptive environment blending
+Transparent VR: Mixed reality with adaptive environment blending
 
-📊 Comprehensive Analytics: Real-time data logging and visualization
+Comprehensive Analytics: Real-time data logging and visualization
 
-🎯 Research Applications
+Research Applications
 Cognitive Enhancement: Optimize focus, relaxation, and engagement
 
 Mental Health: Anxiety reduction and stress management
@@ -28,7 +28,7 @@ Professional Training: Cognitive load-optimized simulations
 
 Neurorehabilitation: Personalized therapeutic interventions
 
-🚀 Quick Start
+Quick Start
 Prerequisites
 Python 3.9+
 
@@ -89,15 +89,15 @@ CAT-VR-System/
 │   │   ├── vr_integration/       # Unity communication bridge
 │   │   └── utils/               # Data logging and visualization
 │   └── unity/                   # VR application source
-├── ⚙️ Configuration/
+├── Configuration/
 │   └── config/                  # System configuration files
-├── 🧪 Testing/
+├── Testing/
 │   ├── tests/                  # Unit and integration tests
 │   └── validation/             # Experimental validation scripts
-├── 📊 Data/
+├── Data/
 │   ├── logs/                   # Session data and analytics
 │   └── models/                 # Trained AI models
-└── 📋 Examples/
+└── Examples/
     ├── demo_scripts/           # Demonstration scripts
     └── use_cases/              # Specific application examples
 🔧 Core Components
@@ -125,7 +125,7 @@ from src.generative_content.content_manager import ContentManager
 
 content_manager = ContentManager()
 adaptive_content = content_manager.generate_content(adaptation_decision)
-🎮 Unity VR Integration
+Unity VR Integration
 The Unity project provides the VR interface with the following key components:
 
 TransparentVROverlay.cs: Manages mixed reality blending
@@ -146,7 +146,7 @@ Unity -buildTarget win64 -exportPath ./Builds/WMR/
 
 # SteamVR
 Unity -buildTarget win64 -exportPath ./Builds/SteamVR/
-🔬 Research Validation
+Research Validation
 Experimental Protocols
 The system includes predefined experimental protocols:
 
@@ -171,7 +171,7 @@ User interaction data
 
 System performance metrics
 
-📈 Results Visualization
+Results Visualization
 Built-in visualization tools for analyzing cognitive adaptation:
 
 python
@@ -207,7 +207,7 @@ class CustomContentGenerator(ContentGenerator):
     def generate_adaptive_content(self, adaptation: Dict) -> Dict:
         # Implement custom content generation logic
         return custom_content
-🧪 Testing
+Testing
 Run the comprehensive test suite:
 
 bash
@@ -218,7 +218,7 @@ pytest tests/ -v
 pytest tests/test_agentic_controller.py -v
 pytest tests/test_cognitive_interpreter.py -v
 pytest tests/integration/ -v
-📊 Performance Metrics
+Performance Metrics
 The system tracks multiple performance indicators:
 
 Cognitive State Accuracy: Comparison with ground truth measures
@@ -244,7 +244,7 @@ EEG-ML-Pipeline: Machine learning for EEG analysis
 
 VR-Cognitive-Assessment: VR cognitive testing protocols
 
-📚 Publications & Citations
+Publications & Citations
 Original Research
 bibtex
 @article{salimi2023fractal,
@@ -262,7 +262,7 @@ bibtex
   url={https://github.com/your-username/CAT-VR-System},
   year={2024}
 }
-👥 Contributing
+Contributing
 We welcome contributions from researchers and developers:
 
 Fork the repository
@@ -286,10 +286,10 @@ Clinical validation studies
 
 Performance optimization
 
-📄 License
+License
 
 
-🤝 Research Collaboration
+Research Collaboration
 We actively collaborate with research institutions on:
 
 Clinical Trials: Anxiety, ADHD, PTSD interventions
@@ -304,7 +304,7 @@ Contact: salimiali74@gmail.com
 
 
 
-🌟 Acknowledgments
+Acknowledgments
 This research extends the foundational work of:
 
 Mohammed Ali Salimi - Original fractal neurofeedback research
