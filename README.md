@@ -73,14 +73,14 @@ Put on your VR headset
 
 The system will automatically detect and adapt to your cognitive state
 
-📁 Project Structure
+Project Structure
 text
 CAT-VR-System/
-├── 📚 Documentation/
+├── Documentation/
 │   ├── RESEARCH_PROPOSAL.md
 │   ├── API_REFERENCE.md
 │   └── EXPERIMENTAL_PROTOCOLS.md
-├── 🔧 Source Code/
+├── Source Code/
 │   ├── src/
 │   │   ├── eeg_processing/      # EEG data acquisition and analysis
 │   │   ├── cognitive_interpreter/ # LLM-based state interpretation
@@ -100,7 +100,7 @@ CAT-VR-System/
 └── Examples/
     ├── demo_scripts/           # Demonstration scripts
     └── use_cases/              # Specific application examples
-🔧 Core Components
+Core Components
 1. EEG Processing Module
 python
 from src.eeg_processing.emotiv_reader import EmotivEEGReader
